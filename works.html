@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Works | Haixu Wang</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@300;400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header>
+        <nav class="navbar">
+            <a href="index.html" class="nav-brand">Haixu Wang</a>
+            <ul class="nav-links">
+                <li><a href="index.html#about">About</a></li>
+                <li><a href="index.html#research">Research</a></li>
+                <li><a href="publications.html">Publications</a></li>
+                <li><a href="posts.html">Posts</a></li>
+                <li><a href="works.html" class="active">Works</a></li>
+                <li><a href="cv.html">CV</a></li>
+            </ul>
+            <button class="nav-toggle" aria-label="Toggle navigation">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+        </nav>
+    </header>
+
+    <main class="page-content">
+        <div class="container">
+            <h1 class="page-title">Works</h1>
+            <p class="page-subtitle">Software, tools, and projects</p>
+
+            <div class="works-grid">
+                <article class="work-card">
+                    <div class="work-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="16 18 22 12 16 6"></polyline>
+                            <polyline points="8 6 2 12 8 18"></polyline>
+                        </svg>
+                    </div>
+                    <h2>pCODE</h2>
+                    <p>An R package for estimating parameters of ordinary differential equation (ODE) models using the Parameter Cascading method. Combines smoothing and profile estimation to estimate any non-linear dynamic system.</p>
+                    <div class="work-tags">
+                        <span class="tag">R</span>
+                        <span class="tag">ODE</span>
+                        <span class="tag">Statistics</span>
+                    </div>
+                    <div class="work-links">
+                        <a href="https://github.com/alex-haixuw/PCODE" class="work-link" target="_blank">GitHub</a>
+                        <a href="https://cran.r-project.org/package=pCODE" class="work-link" target="_blank">CRAN</a>
+                        <a href="https://pcode.shinyapps.io/pcode" class="work-link" target="_blank">Shiny App</a>
+                    </div>
+                </article>
+
+                <!-- Add more works here -->
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <div class="footer-content">
+                <p>&copy; 2026 Haixu Wang. All rights reserved.</p>
+                <div class="footer-links">
+                    <a href="#" onclick="openContactModal(); return false;">Email</a>
+                    <a href="https://github.com/alex-haixuw" target="_blank">GitHub</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Contact Modal -->
+    <div id="contact-modal" class="modal" onclick="closeContactModal(event)">
+        <div class="modal-content">
+            <button class="modal-close" onclick="closeContactModal()">&times;</button>
+            <h3>Get in Touch</h3>
+            <p>Feel free to reach out via email:</p>
+            <div class="email-display">
+                <span id="email-text">haixu.wang@ucalgary.ca</span>
+                <button class="copy-btn" onclick="copyEmail()">Copy</button>
+            </div>
+            <p class="copy-feedback" id="copy-feedback">Copied to clipboard!</p>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
