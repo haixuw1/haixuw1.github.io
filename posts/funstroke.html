@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FunStroke: Teaching LLMs to See Chinese Characters | Haixu Wang</title>
+    <link rel="stylesheet" href="../styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@300;400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header>
+        <nav class="navbar">
+            <a href="../index.html" class="nav-brand">Haixu Wang</a>
+            <ul class="nav-links">
+                <li><a href="../index.html#about">About</a></li>
+                <li><a href="../index.html#research">Research</a></li>
+                <li><a href="../publications.html">Publications</a></li>
+                <li><a href="./" class="active">Posts</a></li>
+                <li><a href="../works/">Works</a></li>
+                <li><a href="../cv.html">CV</a></li>
+            </ul>
+            <button class="nav-toggle" aria-label="Toggle navigation">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+        </nav>
+    </header>
+
+    <main class="page-content">
+        <div class="container">
+            <a href="./" class="back-link">&larr; Back to Posts</a>
+
+            <article class="post-full">
+                <h1>FunStroke / 函墨: Teaching LLMs to See Chinese Characters</h1>
+                <div class="post-date">March 28, 2026</div>
+
+                <div class="post-hero">
+                    <img src="../figures/funstroke_confusion_pairs.gif" alt="Animated slideshow of visually confusable Chinese character pairs">
+                </div>
+
+                <p>
+                    Can an LLM tell 己 from 已 from 巳 &mdash; if you show it <em>what the strokes look like</em>? Chinese LLMs treat characters as opaque token IDs. Characters that are visually near-identical but semantically unrelated get mapped to completely unrelated embeddings. One corrupted character sends the model to a different region of embedding space entirely.
+                </p>
+
+                <p>
+                    FunStroke injects <strong>stroke trajectory structure</strong> into a frozen LLM via cross-attention at every layer, using functional PCA scores and learned gates. No CNN. No pixel rendering at inference. Just <strong>1.6M trainable parameters</strong> steering a 494M-parameter language model.
+                </p>
+
+                <h2>The Problem: Tokens Are Blind</h2>
+
+                <p>
+                    Token embeddings for 己 (self) and 已 (already) are arbitrary vectors &mdash; token ID 99270 vs 36667 in a 152K vocabulary. The LLM has no way to know these characters look nearly identical. It learned their meanings from co-occurrence statistics, not from visual form.
+                </p>
+
+                <div class="post-table-wrapper">
+                    <table class="post-table">
+                        <thead>
+                            <tr>
+                                <th>Input</th>
+                                <th>Intended</th>
+                                <th>What the LLM sees</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>己</strong>经</td>
+                                <td><strong>已</strong>经 (already)</td>
+                                <td>Completely different token embedding</td>
+                            </tr>
+                            <tr>
+                                <td><strong>未</strong>来</td>
+                                <td><strong>末</strong>来 (end)</td>
+                                <td>Completely different token embedding</td>
+                            </tr>
+                            <tr>
+                                <td><strong>太</strong>阳</td>
+                                <td><strong>大</strong>阳 (big)</td>
+                                <td>Completely different token embedding</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <p>
+                    Stroke FPCA scores encode that 己 and 已 share almost the same pen path (L2 distance = 0.18 in 8-dim space). When one gets corrupted to the other, the token ID jumps from 36667 to 99270 &mdash; a completely different embedding vector. But the stroke scores barely change. Cross-attention lets neighboring tokens "see" this visual stability and recover the intended meaning.
+                </p>
+
+                <h2>When Does This Matter?</h2>
+
+                <p>
+                    FunStroke targets settings where the LLM's input has already been corrupted &mdash; the text arrives with visually similar characters swapped, and the model needs to be robust to that noise.
+                </p>
+
+                <div class="post-table-wrapper">
+                    <table class="post-table">
+                        <thead>
+                            <tr>
+                                <th>Source</th>
+                                <th>What happens</th>
+                                <th>Why tokens alone struggle</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>OCR pipelines</td>
+                                <td>Scanner confuses 大/太, 未/末</td>
+                                <td>Valid but wrong token; no visual signal</td>
+                            </tr>
+                            <tr>
+                                <td>Handwriting recognition</td>
+                                <td>Recognizer picks wrong candidate</td>
+                                <td>Token-level blindness, high error rates</td>
+                            </tr>
+                            <tr>
+                                <td>Input method errors</td>
+                                <td>User accepts wrong suggestion</td>
+                                <td>Ambiguous context can't always recover</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h2>The Full Pipeline</h2>
+
+                <div class="post-figure">
+                    <img src="../figures/funstroke_pipeline.gif" alt="Animated pipeline: character to stroke trajectory to FPCA to cross-attention">
+                    <span class="post-caption">Character &rarr; stroke trajectory drawn point-by-point &rarr; FPCA decomposition into 8 scores &rarr; cross-attention injection into the transformer.</span>
+                </div>
+
+                <h2>How It Works</h2>
+
+                <div class="post-figure">
+                    <img src="../figures/funstroke_architecture.gif" alt="Architecture diagram showing cross-attention injection">
+                    <span class="post-caption">At each of 25 injection points, a cross-attention module queries the stroke features of all tokens in the sequence.</span>
+                </div>
+
+                <p>
+                    At each of <strong>25 injection points</strong> (embedding + 24 transformer layers), a cross-attention module lets every token attend to <strong>every other token's stroke features</strong>. When the model sees "己经", token "经" can look at the stroke features of "己" and learn it resembles "已" &mdash; enabling cross-position disambiguation that additive injection cannot do. A learned gate at each layer controls how much stroke signal to mix in.
+                </p>
+
+                <h2>Stroke Trajectories as Functional Data</h2>
+
+                <p>
+                    Each character's pen path is extracted from <a href="https://github.com/skishore/makemeahanzi" target="_blank">Make Me a Hanzi</a>, resampled to 32 evenly-spaced points, and decomposed via <strong>Functional PCA</strong> into 8 interpretable components.
+                </p>
+
+                <div class="post-figure">
+                    <img src="../figures/funstroke_fpca_modes.gif" alt="FPCA principal components perturbing the mean stroke trajectory">
+                    <span class="post-caption">Mean stroke trajectory perturbed along each of the 8 principal components. Red = positive direction, blue = negative.</span>
+                </div>
+
+                <div class="post-figure">
+                    <img src="../figures/funstroke_fpca_scree.png" alt="Scree plot: 8 components explain 59.1% of variance" style="max-width: 500px;">
+                    <span class="post-caption">8 components capture 59.1% of variance across 9,574 characters.</span>
+                </div>
+
+                <div class="post-table-wrapper">
+                    <table class="post-table">
+                        <thead>
+                            <tr>
+                                <th>Component</th>
+                                <th>Variance</th>
+                                <th>Captures</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>PC1</td>
+                                <td>16.9%</td>
+                                <td>Overall trajectory scale and direction</td>
+                            </tr>
+                            <tr>
+                                <td>PC2</td>
+                                <td>13.3%</td>
+                                <td>Left-right spread vs vertical compression</td>
+                            </tr>
+                            <tr>
+                                <td>PC3</td>
+                                <td>7.8%</td>
+                                <td>Enclosure / loop structure</td>
+                            </tr>
+                            <tr>
+                                <td>PC4 &ndash; PC8</td>
+                                <td>21.1%</td>
+                                <td>Finer stroke detail</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <p>
+                    Characters close in this 8-dimensional space share visual structure. The confusion discovery module identifies <strong>1,916 characters</strong> with at least one confusable neighbor.
+                </p>
+
+                <h2>FPCA vs Pixel Similarity</h2>
+
+                <p>
+                    The FPCA representation captures <strong>structural stroke similarity</strong>, which is complementary to pixel-level visual similarity. The correlation between the two distance measures is just r = 0.15 &mdash; they measure fundamentally different things.
+                </p>
+
+                <div class="post-figure">
+                    <img src="../figures/funstroke_distance_scatter.png" alt="Scatter plot: FPCA distance vs pixel distance" style="max-width: 450px;">
+                    <span class="post-caption">FPCA distance vs pixel distance (r = 0.15). The two similarity measures are nearly orthogonal.</span>
+                </div>
+
+                <div class="post-figure" style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
+                    <div style="text-align: center;">
+                        <img src="../figures/funstroke_fpca_neighbors.png" alt="FPCA-closest pairs" style="max-width: 280px; border-radius: 8px; border: 1px solid var(--border-color);">
+                        <span class="post-caption">FPCA-closest pairs (trajectory similarity)</span>
+                    </div>
+                    <div style="text-align: center;">
+                        <img src="../figures/funstroke_pixel_neighbors.png" alt="Pixel-closest pairs" style="max-width: 280px; border-radius: 8px; border: 1px solid var(--border-color);">
+                        <span class="post-caption">Pixel-closest pairs (visual similarity)</span>
+                    </div>
+                </div>
+
+                <h2>Two-Phase Training</h2>
+
+                <div class="post-figure">
+                    <img src="../figures/funstroke_gate_training.gif" alt="Gates opening during two-phase training">
+                    <span class="post-caption">Gate values across layers during two-phase training. Phase 1 trains projections with frozen gates; Phase 2 lets gates learn which layers to open.</span>
+                </div>
+
+                <p>
+                    If both gates and projections start at zero, neither can bootstrap the other &mdash; the product is always zero, and gradients vanish for both. <strong>Phase 1</strong> breaks the deadlock by freezing gates at a small nonzero value (0.01), giving projections a gradient signal to learn useful 8 &rarr; 896 mappings. <strong>Phase 2</strong> then unfreezes gates so the model can decide where stroke info matters most.
+                </p>
+
+                <h2>Results</h2>
+
+                <p>
+                    All comparisons use the <strong>same trained model</strong> in two modes: stroke features active vs zeroed out. The only variable is the stroke signal.
+                </p>
+
+                <h2>Strokes Help with Ambiguity</h2>
+
+                <p>
+                    30 minimal pairs where one confusable character is swapped (e.g., "他<strong>已</strong>经到了" vs "他<strong>己</strong>经到了"). The model scores both; correct sentence should have lower perplexity.
+                </p>
+
+                <div class="post-table-wrapper">
+                    <table class="post-table">
+                        <thead>
+                            <tr>
+                                <th>Condition</th>
+                                <th>Accuracy</th>
+                                <th>Verdict</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Without strokes</td>
+                                <td>56.7% (17/30)</td>
+                                <td></td>
+                            </tr>
+                            <tr>
+                                <td><strong>With strokes</strong></td>
+                                <td><strong>66.7% (20/30)</strong></td>
+                                <td><strong>+10pp</strong></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h2>Strokes Improve Robustness</h2>
+
+                <p>
+                    Perplexity measured on 5K clean + 3.7K corrupted examples. The robustness gap &mdash; how much worse the model performs on corrupted vs clean text &mdash; shrinks by 1.07 when strokes are active.
+                </p>
+
+                <div class="post-table-wrapper">
+                    <table class="post-table">
+                        <thead>
+                            <tr>
+                                <th></th>
+                                <th>Clean PPL</th>
+                                <th>Corrupt PPL</th>
+                                <th>Gap</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Without strokes</td>
+                                <td>9.43</td>
+                                <td>19.46</td>
+                                <td>10.03</td>
+                            </tr>
+                            <tr>
+                                <td><strong>With strokes</strong></td>
+                                <td><strong>8.75</strong></td>
+                                <td><strong>17.71</strong></td>
+                                <td><strong>8.96</strong></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <p>
+                    Notably, stroke injection doesn't just avoid hurting clean performance &mdash; it <strong>actively improves</strong> it (9.43 &rarr; 8.75, <strong>&minus;7.2%</strong>). The cross-attention provides useful structural context even when all characters are correct.
+                </p>
+
+                <h2>Representation Evaluation</h2>
+
+                <p>
+                    Beyond output quality, we measure whether stroke injection changes <strong>what the model internally represents</strong>. All 9,574 characters are passed through the model individually, and hidden states are extracted with strokes active vs zeroed.
+                </p>
+
+                <div class="post-table-wrapper">
+                    <table class="post-table">
+                        <thead>
+                            <tr>
+                                <th>Metric</th>
+                                <th>Without strokes</th>
+                                <th>With strokes</th>
+                                <th>&Delta;</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>RSA (Spearman &rho;)</td>
+                                <td>&minus;0.008</td>
+                                <td>+0.110</td>
+                                <td><strong>+0.118</strong></td>
+                            </tr>
+                            <tr>
+                                <td>Linear probe R&sup2;</td>
+                                <td>&minus;0.061</td>
+                                <td>+0.253</td>
+                                <td><strong>+0.314</strong></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <p>
+                    <strong>RSA:</strong> Pairwise cosine distances between hidden states are compared against pairwise FPCA L2 distances. Without strokes, hidden geometry is uncorrelated with visual structure (&rho; &asymp; 0). With strokes, characters that look alike are now closer in hidden space.
+                </p>
+
+                <p>
+                    <strong>Linear probe:</strong> A Ridge regression predicts 8-dim FPCA scores from hidden states. Without strokes, R&sup2; is negative (token embeddings encode zero visual form). With strokes, R&sup2; = 0.25 &mdash; confirming that cross-attention injects recoverable visual structure into the representation.
+                </p>
+
+                <h2>Generation Examples</h2>
+
+                <p>
+                    Generation from corrupted prompts, comparing the trained model with and without stroke injection:
+                </p>
+
+                <div class="post-table-wrapper">
+                    <table class="post-table">
+                        <thead>
+                            <tr>
+                                <th>Corrupted prompt</th>
+                                <th>Mode</th>
+                                <th>Response</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td rowspan="2">"这个问题<strong>大</strong>难了"<br><em>(should be 太难了 = too hard)</em></td>
+                                <td><strong>With strokes</strong></td>
+                                <td>Relevant response addressing difficulty</td>
+                            </tr>
+                            <tr>
+                                <td>Without strokes</td>
+                                <td>Off-topic response about Python regex</td>
+                            </tr>
+                            <tr>
+                                <td rowspan="2">"<strong>己</strong>经完成了任务"<br><em>(should be 已经 = already)</em></td>
+                                <td><strong>With strokes</strong></td>
+                                <td>Coherent: "task is done, save it"</td>
+                            </tr>
+                            <tr>
+                                <td>Without strokes</td>
+                                <td>Generic AI intro (derailed)</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h2>Architecture at a Glance</h2>
+
+                <div class="post-table-wrapper">
+                    <table class="post-table">
+                        <thead>
+                            <tr>
+                                <th>Component</th>
+                                <th>Params</th>
+                                <th>Trainable</th>
+                                <th>Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Qwen2.5-0.5B-Instruct</td>
+                                <td>494M</td>
+                                <td>Frozen</td>
+                                <td>bfloat16, from HuggingFace</td>
+                            </tr>
+                            <tr>
+                                <td>FPCALayer (64 &rarr; 8)</td>
+                                <td>520</td>
+                                <td>Yes</td>
+                                <td>Initialized from eigenfunctions</td>
+                            </tr>
+                            <tr>
+                                <td>StrokeCrossAttention &times;25</td>
+                                <td>1.63M</td>
+                                <td>Yes</td>
+                                <td>Q/K: 64d, V: 896d, per-layer gate</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <p>
+                    Total trainable: <strong>~1.63M parameters (0.33% of model)</strong>. Checkpoint size: ~370KB (backbone not saved).
+                </p>
+
+                <h2>Try It</h2>
+
+                <p>
+                    The full codebase, data pipeline, and evaluation scripts are open-source. Built with Qwen2.5-0.5B, PyTorch, and functional PCA on stroke trajectories from Make Me a Hanzi (9,574 characters).
+                </p>
+
+                <div class="post-links">
+                    <a href="https://github.com/haixuw1/funstroke" class="btn btn-primary" target="_blank">View on GitHub</a>
+                </div>
+            </article>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <div class="footer-content">
+                <p>&copy; 2026 Haixu Wang. All rights reserved.</p>
+                <div class="footer-links">
+                    <a href="#" onclick="openContactModal(); return false;">Email</a>
+                    <a href="https://github.com/alex-haixuw" target="_blank">GitHub</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Contact Modal -->
+    <div id="contact-modal" class="modal" onclick="closeContactModal(event)">
+        <div class="modal-content">
+            <button class="modal-close" onclick="closeContactModal()">&times;</button>
+            <h3>Get in Touch</h3>
+            <p>Feel free to reach out via email:</p>
+            <div class="email-display">
+                <span id="email-text">haixu.wang@ucalgary.ca</span>
+                <button class="copy-btn" onclick="copyEmail()">Copy</button>
+            </div>
+            <p class="copy-feedback" id="copy-feedback">Copied to clipboard!</p>
+        </div>
+    </div>
+
+    <script src="../script.js"></script>
+</body>
+</html>
