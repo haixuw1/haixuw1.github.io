@@ -499,6 +499,86 @@ footer {
     margin-bottom: 1.5rem;
 }
 
+/* Post Full - Images, Figures, Tables */
+.post-hero {
+    margin-bottom: 2rem;
+}
+
+.post-hero img {
+    width: 100%;
+    border-radius: 8px;
+}
+
+.post-full h2 {
+    font-size: 1.5rem;
+    margin-top: 2.5rem;
+    margin-bottom: 1rem;
+    color: var(--accent-teal);
+}
+
+.post-figure {
+    margin: 2rem 0;
+    text-align: center;
+}
+
+.post-figure img {
+    max-width: 100%;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+}
+
+.post-caption {
+    display: block;
+    margin-top: 0.75rem;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    font-style: italic;
+}
+
+.post-table-wrapper {
+    overflow-x: auto;
+    margin: 1.5rem 0;
+}
+
+.post-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.95rem;
+}
+
+.post-table th,
+.post-table td {
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--border-color);
+    text-align: center;
+}
+
+.post-table th {
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.post-table td {
+    color: var(--text-secondary);
+}
+
+.post-table td:first-child {
+    text-align: left;
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+.post-table td:last-child {
+    color: var(--accent-teal);
+}
+
+.post-links {
+    margin-top: 2rem;
+    margin-bottom: 2rem;
+}
+
+
 /* Works Page */
 .works-grid {
     display: grid;

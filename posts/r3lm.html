@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>R3LM: Aligning LLMs Without Touching Their Weights | Haixu Wang</title>
+    <link rel="stylesheet" href="../styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@300;400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header>
+        <nav class="navbar">
+            <a href="../index.html" class="nav-brand">Haixu Wang</a>
+            <ul class="nav-links">
+                <li><a href="../index.html#about">About</a></li>
+                <li><a href="../index.html#research">Research</a></li>
+                <li><a href="../publications.html">Publications</a></li>
+                <li><a href="./" class="active">Posts</a></li>
+                <li><a href="../works/">Works</a></li>
+                <li><a href="../cv.html">CV</a></li>
+            </ul>
+            <button class="nav-toggle" aria-label="Toggle navigation">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+        </nav>
+    </header>
+
+    <main class="page-content">
+        <div class="container">
+            <a href="./" class="back-link">&larr; Back to Posts</a>
+
+            <article class="post-full">
+                <h1>R3LM: Aligning LLMs Without Touching Their Weights</h1>
+                <div class="post-date">March 25, 2026</div>
+
+                <div class="post-hero">
+                    <img src="../figures/r3lm_architecture.png" alt="R3LM System Architecture">
+                </div>
+
+                <p>
+                    Can a 7B model learn to judge like a human from just 600 labels and a YAML file? That's the question behind <strong>R3LM</strong> (R(LLL)M &mdash; Reinforcement Learning from LLM Feedback), a system that aligns LLM outputs with human values <em>without modifying the generator's weights</em>.
+                </p>
+
+                <h2>The Problem with Current Approaches</h2>
+
+                <p>
+                    Most alignment methods are deeply entangled with the generator. RLHF modifies its weights through policy updates. Constitutional AI rewrites its prompts through self-critique. Using GPT-4 as a judge locks you into a vendor. These approaches are expensive, opaque, and hard to adapt to new domains.
+                </p>
+
+                <p>
+                    R3LM takes a different approach, inspired by how governance works in the real world: an <strong>independent judge</strong> evaluates behavior against an explicit constitution, trained by observing human judgments. The generator is never modified &mdash; the judge enforces the rules from the sideline.
+                </p>
+
+                <h2>How It Works</h2>
+
+                <p>
+                    Think of it like sports. You don't rewire the players' brains to follow rules. You put a referee on the sideline with a rulebook. The referee learns from experience what good and bad play looks like.
+                </p>
+
+                <div class="post-figure">
+                    <img src="../figures/r3lm_pipeline.gif" alt="R3LM Pipeline Animation">
+                    <span class="post-caption">The R3LM pipeline: Generate K candidates, score each against a constitution, select the best.</span>
+                </div>
+
+                <p>
+                    The generator (Mistral 7B via Ollama) produces K candidate responses. An independent judge (Mistral 7B + LoRA adapter) scores each candidate against a YAML constitution. The selector picks the best one. The generator never changes &mdash; only the judge learns.
+                </p>
+
+                <h2>The Constitution: Human Values as Code</h2>
+
+                <p>
+                    All evaluation rules live in a single YAML file &mdash; versioned, diffable, auditable. Want a new domain? Write a new YAML. The pipeline doesn't change.
+                </p>
+
+                <div class="post-figure">
+                    <img src="../figures/r3lm_constitution.png" alt="Constitution Visual">
+                    <span class="post-caption">The NBA Debates constitution: 6 evaluation principles, 4 score levels, all in one YAML file.</span>
+                </div>
+
+                <p>
+                    The repo includes two constitutions: <strong>NBA Debates</strong> (ascending scores &mdash; higher is better) and <strong>Medical Safety</strong> (descending scores &mdash; lower is safer). Swapping domains means pointing to a different YAML and retraining the judge. Everything else stays the same.
+                </p>
+
+                <h2>Results: Before vs After Training</h2>
+
+                <p>
+                    An untrained judge scores everything the same. A trained judge matches human labels with <strong>0.86 Cohen's Kappa</strong> (near-perfect agreement, adjusted for class imbalance) on 60 held-out examples.
+                </p>
+
+                <div class="post-figure">
+                    <img src="../figures/r3lm_progression.gif" alt="Training Progression">
+                    <span class="post-caption">Judge accuracy progresses from random (0% training) to near-perfect (100% training).</span>
+                </div>
+
+                <div class="post-figure">
+                    <img src="../figures/r3lm_confusion.png" alt="Confusion Matrix" style="max-width: 500px;">
+                    <span class="post-caption">Confusion matrix on held-out data: 93.3% accuracy, Cohen's Kappa 0.86.</span>
+                </div>
+
+                <h2>How R3LM Compares</h2>
+
+                <div class="post-table-wrapper">
+                    <table class="post-table">
+                        <thead>
+                            <tr>
+                                <th></th>
+                                <th>RLHF</th>
+                                <th>Constitutional AI</th>
+                                <th>Guardrails</th>
+                                <th>R3LM</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Modifies generator?</td>
+                                <td>Yes</td>
+                                <td>Yes</td>
+                                <td>No</td>
+                                <td><strong>No</strong></td>
+                            </tr>
+                            <tr>
+                                <td>Learns from humans?</td>
+                                <td>Yes</td>
+                                <td>Indirectly</td>
+                                <td>No</td>
+                                <td><strong>Yes</strong></td>
+                            </tr>
+                            <tr>
+                                <td>Rules auditable?</td>
+                                <td>No</td>
+                                <td>Partially</td>
+                                <td>Yes</td>
+                                <td><strong>Yes</strong></td>
+                            </tr>
+                            <tr>
+                                <td>Compute needed?</td>
+                                <td>Massive</td>
+                                <td>Large</td>
+                                <td>None</td>
+                                <td><strong>Light</strong></td>
+                            </tr>
+                            <tr>
+                                <td>Swap domains?</td>
+                                <td>Retrain all</td>
+                                <td>Rewrite prompts</td>
+                                <td>Rewrite rules</td>
+                                <td><strong>Swap YAML</strong></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h2>Try It</h2>
+
+                <p>
+                    The full codebase, data (247 prompts, 600 labeled responses), and constitutions are open-source. Built with Mistral 7B, Ollama, LoRA, and a single RTX 4090.
+                </p>
+
+                <div class="post-links">
+                    <a href="https://github.com/haixuw1/R3LM" class="btn btn-primary" target="_blank">View on GitHub</a>
+                </div>
+            </article>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <div class="footer-content">
+                <p>&copy; 2026 Haixu Wang. All rights reserved.</p>
+                <div class="footer-links">
+                    <a href="#" onclick="openContactModal(); return false;">Email</a>
+                    <a href="https://github.com/alex-haixuw" target="_blank">GitHub</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Contact Modal -->
+    <div id="contact-modal" class="modal" onclick="closeContactModal(event)">
+        <div class="modal-content">
+            <button class="modal-close" onclick="closeContactModal()">&times;</button>
+            <h3>Get in Touch</h3>
+            <p>Feel free to reach out via email:</p>
+            <div class="email-display">
+                <span id="email-text">haixu.wang@ucalgary.ca</span>
+                <button class="copy-btn" onclick="copyEmail()">Copy</button>
+            </div>
+            <p class="copy-feedback" id="copy-feedback">Copied to clipboard!</p>
+        </div>
+    </div>
+
+    <script src="../script.js"></script>
+</body>
+</html>
