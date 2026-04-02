@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>poli5y: Learning Betting Policies on BTC Prediction Markets | Haixu Wang</title>
+    <link rel="stylesheet" href="../styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@300;400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header>
+        <nav class="navbar">
+            <a href="../index.html" class="nav-brand">Haixu Wang</a>
+            <ul class="nav-links">
+                <li><a href="../index.html#about">About</a></li>
+                <li><a href="../index.html#research">Research</a></li>
+                <li><a href="../publications.html">Publications</a></li>
+                <li><a href="./" class="active">Posts</a></li>
+                <li><a href="../works/">Works</a></li>
+            </ul>
+            <button class="nav-toggle" aria-label="Toggle navigation">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+        </nav>
+    </header>
+
+    <main class="page-content">
+        <div class="container">
+            <a href="./" class="back-link">&larr; Back to Posts</a>
+
+            <article class="post-full">
+                <h1>poli5y: Learning Betting Policies on BTC Prediction Markets</h1>
+                <div class="post-date">April 1, 2026</div>
+
+                <div class="post-hero">
+                    <img src="../figures/poli5y_betting_demo.gif" alt="Animated demo of BTC price movement within a 5-minute interval, showing UP and DOWN outcomes">
+                </div>
+
+                <p>
+                    Every 5 minutes, the question is simple: <strong>will Bitcoin go up or down?</strong> That&rsquo;s the bet. Above the line is UP, below is DOWN. The animation above shows what that looks like in real time during a particularly dramatic half hour &mdash; an $11K crash in 5 minutes, followed by a $4.5K bounce.
+                </p>
+
+                <p>
+                    poli5y is a research project that frames this as a <strong>policy optimization problem</strong> rather than a price forecasting problem. We don&rsquo;t try to predict where BTC is going. Instead, we learn a decision rule &mdash; a function that looks at the current state and outputs an action: bet YES, bet NO, or sit this one out. The language of <strong>reinforcement learning</strong> and <strong>causal inference</strong>, applied to prediction markets.
+                </p>
+
+                <h2>The Data: Six Months, Second by Second</h2>
+
+                <p>
+                    We downloaded 6 months of BTCUSDT trades from Binance (~3.3 GB) and reshaped them into 52,128 five-minute intervals, each containing 300 price snapshots at 1-second resolution. Here&rsquo;s the full trajectory, $60K to $126K:
+                </p>
+
+                <div class="post-figure">
+                    <img src="../figures/poli5y_price_timeseries.png" alt="Six-month BTC price timeseries from October 2025 to March 2026">
+                    <span class="post-caption">BTC/USDT, October 2025 &ndash; March 2026. 52,128 five-minute intervals stitched together.</span>
+                </div>
+
+                <p>
+                    Each interval isn&rsquo;t just a return number &mdash; it&rsquo;s a 300-point trajectory, a whole story arc squeezed into 5 minutes. Sometimes it drifts. Sometimes it panics. Sometimes it fakes you out at second 200 and reverses. The shape matters, not just the endpoint.
+                </p>
+
+                <h2>52,128 Curves, All at Once</h2>
+
+                <p>
+                    Stack every interval&rsquo;s price trajectory (minus the previous close) and color by date:
+                </p>
+
+                <div class="post-figure">
+                    <img src="../figures/poli5y_rainbow_delta.png" alt="All 52K delta curves stacked, colored by month">
+                    <span class="post-caption">52K delta curves colored by date. Most hover near zero, but the tails are wild &mdash; and the spread changes with the market regime.</span>
+                </div>
+
+                <p>
+                    Most curves hover near zero &mdash; the market is boring more often than not. But the tails are wild, and the spread changes color: some months are tighter, some are wider. Volatility clusters. This is why we need <strong>functional data analysis</strong> &mdash; each interval is a curve in 300-dimensional space, not a single number.
+                </p>
+
+                <h2>Functional PCA: What Shapes Does the Market Make?</h2>
+
+                <p>
+                    Functional PCA decomposes the variation into orthogonal modes &mdash; the dominant shapes of price movement. Five components explain <strong>96.5%</strong> of all variance:
+                </p>
+
+                <div class="post-figure">
+                    <img src="../figures/poli5y_fpca_modes.png" alt="FPCA modes of variation showing the four dominant curve shapes">
+                    <span class="post-caption">Top 4 functional principal components. FPC1: level shift (did it go up or down?). FPC2: slope/tilt (early vs. late movers). FPC3&ndash;4: mid-interval reversals and wiggles.</span>
+                </div>
+
+                <p>
+                    The first component is just &ldquo;did the market move?&rdquo; &mdash; boring but powerful. The second captures momentum vs. mean-reversion <em>within</em> the interval. The higher components catch V-shapes, fakeouts, and other dramatic plot twists. These FPCA scores, lagged by one interval, become the features our policy conditions on.
+                </p>
+
+                <h2>The Strategy: Stop Predicting, Start Deciding</h2>
+
+                <p>
+                    We build a <strong>policy</strong> &mdash; a mapping from states to actions. The state is a 9-dimensional feature vector: 5 lagged FPCA scores, previous direction, rolling volatility, and cyclical time-of-day encoding. The action is {YES, NO, ABSTAIN}. The policy doesn&rsquo;t model the market. It answers one question: <em>given what I see right now, what should I do?</em>
+                </p>
+
+                <p>
+                    We tried two policy classes:
+                </p>
+
+                <ul>
+                    <li><strong>Value-based with threshold:</strong> Fit a logistic reward model for P(UP | state), compute Q-values, and bet when confidence exceeds a threshold. The threshold controls selectivity &mdash; how sure the model must be before placing a bet.</li>
+                    <li><strong>DR-logistic:</strong> Directly optimize a logistic policy using a doubly robust objective. Sounds fancier. Didn&rsquo;t work.</li>
+                </ul>
+
+                <h2>Results</h2>
+
+                <p>
+                    Trained on Oct 2025 &ndash; Jan 2026, tested strictly out of sample on Feb &ndash; Mar 2026:
+                </p>
+
+                <div class="post-table-wrapper">
+                    <table class="post-table">
+                        <thead>
+                            <tr>
+                                <th>Policy</th>
+                                <th>Test Bets</th>
+                                <th>Win Rate</th>
+                                <th>Value</th>
+                                <th>Mean/Bet</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Always YES (baseline)</td>
+                                <td>16,697</td>
+                                <td>50.03%</td>
+                                <td>+11</td>
+                                <td>+0.001</td>
+                            </tr>
+                            <tr>
+                                <td>Mean-reversion</td>
+                                <td>8,342</td>
+                                <td>50.80%</td>
+                                <td>+134</td>
+                                <td>+0.016</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Value-based (threshold)</strong></td>
+                                <td><strong>16,697</strong></td>
+                                <td><strong>51.29%</strong></td>
+                                <td><strong>+431</strong></td>
+                                <td><strong>+0.026</strong></td>
+                            </tr>
+                            <tr>
+                                <td>DR-logistic</td>
+                                <td>16,697</td>
+                                <td>50.03%</td>
+                                <td>+11</td>
+                                <td>+0.001</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <p>
+                    The value-based policy accumulated <strong>+431</strong> over two months &mdash; nearly 4x the best simple baseline. The edge is 51.29%, which sounds tiny until you remember it compounds over 16,697 bets.
+                </p>
+
+                <div class="post-figure">
+                    <img src="../figures/poli5y_optimization_test.png" alt="Cumulative value of all policies on the test set">
+                    <span class="post-caption">Cumulative value on the Feb&ndash;Mar test set. The value-based policy (purple) dominates. The DR-logistic (orange, dashed) collapsed to &ldquo;always YES.&rdquo;</span>
+                </div>
+
+                <h2>The Interesting Failure</h2>
+
+                <p>
+                    The DR-logistic policy collapsed &mdash; its intercept saturated at the upper bound and all feature weights went to zero. It learned &ldquo;always bet YES,&rdquo; identical to the baseline. Why? A logistic policy must bet on every interval (no abstention mechanism). In a near-50/50 market, the tiny edge from features is overwhelmed by the need to pick a global direction.
+                </p>
+
+                <p>
+                    The value-based approach succeeded precisely because the Q-function + threshold framework naturally supports <strong>selective betting</strong>. Same signal, same model, wildly different results &mdash; because <strong>policy class design matters as much as optimization cleverness</strong>.
+                </p>
+
+                <div class="post-figure">
+                    <img src="../figures/poli5y_decision_surface.png" alt="Decision surface showing the reward model's probability estimates and decision boundary">
+                    <span class="post-caption">The learned decision surface. Left: P(UP | state) as a function of lagged FPC1 and FPC2. Right: the resulting action regions. The policy uses the shape of the previous trajectory, not just its direction.</span>
+                </div>
+
+                <h2>Try It Yourself</h2>
+
+                <p>
+                    The project includes an interactive Streamlit dashboard where you can explore preset policies, build custom rules with if-then conditions, and optimize strategy templates with parameter sweeps. Policies are pluggable &mdash; drop a <code>.py</code> file in <code>policies/</code> and it appears in the dashboard automatically.
+                </p>
+
+                <div class="post-figure">
+                    <a href="https://poli5y.streamlit.app" target="_blank">
+                        <img src="../figures/poli5y_dashboard.png" alt="poli5y Streamlit dashboard showing policy comparison">
+                    </a>
+                    <span class="post-caption">The policy playground. Compare presets, build custom rules, or optimize strategies &mdash; click to try it live.</span>
+                </div>
+
+                <p>
+                    The full analysis is documented in a <a href="https://github.com/haixuw1/poli5y/tree/master/docs" target="_blank">10-part writeup</a> covering functional data analysis, policy evaluation, off-policy estimation, causal inference, and optimization &mdash; with all the math, figures, and self-deprecating humor you&rsquo;d expect from a project that treats betting on Bitcoin as an applied statistics exercise.
+                </p>
+
+                <div class="post-links">
+                    <a href="https://github.com/haixuw1/poli5y" class="btn btn-primary" target="_blank">View on GitHub</a>
+                    <a href="https://poli5y.streamlit.app" class="btn btn-primary" target="_blank">Live Dashboard</a>
+                </div>
+            </article>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <div class="footer-content">
+                <p>&copy; 2026 Haixu Wang. All rights reserved.</p>
+                <div class="footer-links">
+                    <a href="#" onclick="openContactModal(); return false;">Email</a>
+                    <a href="https://github.com/alex-haixuw" target="_blank">GitHub</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Contact Modal -->
+    <div id="contact-modal" class="modal" onclick="closeContactModal(event)">
+        <div class="modal-content">
+            <button class="modal-close" onclick="closeContactModal()">&times;</button>
+            <h3>Get in Touch</h3>
+            <p>Feel free to reach out via email:</p>
+            <div class="email-display">
+                <span id="email-text">haixu.wang@ucalgary.ca</span>
+                <button class="copy-btn" onclick="copyEmail()">Copy</button>
+            </div>
+            <p class="copy-feedback" id="copy-feedback">Copied to clipboard!</p>
+        </div>
+    </div>
+
+    <script src="../script.js"></script>
+</body>
+</html>

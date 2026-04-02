@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:www.haixu-alex.me)",
+      "Bash(start D:Gwebindex.html)",
+      "Bash(start \"\" \"D:\\\\Gweb\\\\index.html\")",
+      "Bash(python -m http.server:*)",
+      "WebFetch(domain:scholar.google.com)",
+      "WebSearch",
+      "WebFetch(domain:profiles.ucalgary.ca)",
+      "WebFetch(domain:arxiv.org)",
+      "WebFetch(domain:wires.onlinelibrary.wiley.com)",
+      "WebFetch(domain:onlinelibrary.wiley.com)",
+      "WebFetch(domain:www.tandfonline.com)",
+      "WebFetch(domain:dblp.org)",
+      "WebFetch(domain:www.researchgate.net)",
+      "Bash(findstr:*)",
+      "Bash(del \"D:\\\\Gweb\\\\post-fda.html\" \"D:\\\\Gweb\\\\post-shiny.html\")",
+      "Bash(gh --version:*)",
+      "Bash(git --version:*)",
+      "Bash(git commit:*)",
+      "Bash(git add:*)",
+      "Bash(git rebase:*)",
+      "Bash(git filter-branch:*)",
+      "Bash(git stash:*)",
+      "Bash(FILTER_BRANCH_SQUELCH_WARNING=1 git filter-branch --msg-filter 'sed \"/Co-Authored-By:.*/d\"' -- --all 2>&1)",
+      "Bash(grep -r \"cv\\\\|CV\" /d/Gweb/*.html)"
+    ]
+  }
+}
